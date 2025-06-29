@@ -4,10 +4,6 @@ from nextcord import Interaction, SlashOption, PermissionOverwrite, ChannelType
 import os
 from dotenv import load_dotenv
 import asyncio
-import threading
-import http.server
-import socketserver
-import time
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -101,11 +97,6 @@ async def on_voice_state_update(member, before, after):
             category=new_category
         )
 
-        async def actualizar_permisos():
-            while voice_channel and voice_channel.members:
-                await asyncio.sleep(0.1)
-            # ya no es necesario modificar permisos
-
         async def eliminar_canales_si_vacio():
             while True:
                 await asyncio.sleep(0.1)
@@ -118,21 +109,6 @@ async def on_voice_state_update(member, before, after):
                         pass
                     break
 
-        bot.loop.create_task(actualizar_permisos())
         bot.loop.create_task(eliminar_canales_si_vacio())
 
-
-if os.environ.get("RENDER") == "true":
-    def fake_server():
-        PORT = int(os.environ.get("PORT", 8080))
-        Handler = http.server.SimpleHTTPRequestHandler
-        with socketserver.TCPServer(("", PORT), Handler) as httpd:
-            httpd.serve_forever()
-    threading.Thread(target=fake_server).start()
-
-while True:
-    try:
-        bot.run(TOKEN)
-    except Exception as e:
-        print(f"Bot desconectado, reconectando en 5 segundos: {e}")
-        time.sleep(5)
+bot.run(TOKEN)
