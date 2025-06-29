@@ -18,6 +18,7 @@ intents.message_content = True
 intents.guilds = True
 intents.voice_states = True
 intents.members = True
+user_text_channels = {}
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -77,7 +78,7 @@ async def yp_generador(
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    global generator_channel_id
+    global generator_channel_id, user_text_channels
     if after.channel and after.channel.id == generator_channel_id:
         guild = member.guild
         new_category = await guild.create_category(name=f"# {member.display_name}")
@@ -103,6 +104,8 @@ async def on_voice_state_update(member, before, after):
             category=new_category
         )
 
+        user_text_channels[member.id] = text_channel.id
+
         async def actualizar_permisos():
             miembros_actuales = set()
             while voice_channel and voice_channel.members:
@@ -122,39 +125,13 @@ async def on_voice_state_update(member, before, after):
                         await voice_channel.delete()
                         await text_channel.delete()
                         await new_category.delete()
+                        user_text_channels.pop(member.id, None)
                     except:
                         pass
                     break
 
         bot.loop.create_task(actualizar_permisos())
         bot.loop.create_task(eliminar_canales_si_vacio())
-
-commands_channel_id = None
-
-@yp.subcommand(name="comand", description="Asignar o reasignar canal de texto para comandos (/yp invite)")
-async def yp_comand(
-    interaction: Interaction,
-    canal: nextcord.TextChannel = SlashOption(
-        name="canal",
-        description="Selecciona el canal de texto para comandos",
-        channel_types=[ChannelType.text],
-        required=True
-    )
-):
-    global commands_channel_id
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("No tienes permisos.", ephemeral=True)
-        return
-
-    old = commands_channel_id
-    commands_channel_id = canal.id
-
-    if old and old != commands_channel_id:
-        await interaction.response.send_message(
-            f"Canal de comandos reasignado: <#{old}> ➔ <#{commands_channel_id}>", ephemeral=True
-        )
-    else:
-        await interaction.response.send_message(f"Canal de comandos asignado: <#{commands_channel_id}>", ephemeral=True)
 
 @yp.subcommand(name="invite", description="Invita hasta 4 usuarios a tu canal de voz privado")
 async def yp_invite(
@@ -164,10 +141,10 @@ async def yp_invite(
     usuario3: nextcord.Member = SlashOption(required=False, description="Usuario 3"),
     usuario4: nextcord.Member = SlashOption(required=False, description="Usuario 4"),
 ):
-    global commands_channel_id
+    global user_text_channels
 
-    if interaction.channel.id != commands_channel_id:
-        await interaction.response.send_message("Este comando solo se puede usar en el canal de comandos asignado.", ephemeral=True)
+    if user_text_channels.get(interaction.user.id) != interaction.channel.id:
+        await interaction.response.send_message("Este comando solo se puede usar en tu canal privado de texto.", ephemeral=True)
         return
 
     canal = interaction.user.voice.channel
