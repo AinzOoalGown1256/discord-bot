@@ -1,4 +1,10 @@
-# instalar fly si no lo tienes
-flyctl launch  # responde las preguntas
-flyctl secrets set DISCORD_TOKEN=tu_token_aqui
-flyctl deploy
+app = "discord-bot-vgbrha"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+
+[deploy]
+  strategy = "rolling"
