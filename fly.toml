@@ -1,0 +1,4 @@
+# instalar fly si no lo tienes
+flyctl launch  # responde las preguntas
+flyctl secrets set DISCORD_TOKEN=tu_token_aqui
+flyctl deploy
