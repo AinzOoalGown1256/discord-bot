@@ -7,6 +7,7 @@ import asyncio
 import threading
 import http.server
 import socketserver
+import time
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -120,6 +121,7 @@ async def on_voice_state_update(member, before, after):
         bot.loop.create_task(actualizar_permisos())
         bot.loop.create_task(eliminar_canales_si_vacio())
 
+
 if os.environ.get("RENDER") == "true":
     def fake_server():
         PORT = int(os.environ.get("PORT", 8080))
@@ -128,4 +130,9 @@ if os.environ.get("RENDER") == "true":
             httpd.serve_forever()
     threading.Thread(target=fake_server).start()
 
-bot.run(TOKEN)
+while True:
+    try:
+        bot.run(TOKEN)
+    except Exception as e:
+        print(f"Bot desconectado, reconectando en 5 segundos: {e}")
+        time.sleep(5)
