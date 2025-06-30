@@ -116,7 +116,7 @@ async def on_voice_state_update(member, before, after):
             member: PermissionOverwrite(manage_channels=True)
         }
         voice_channel = await guild.create_voice_channel(
-            name=f"🎤 Sala de {member.display_name}",
+            name=f"🎤-AUDIO",
             overwrites=overwrites_voice,
             category=new_category,
             user_limit=5
@@ -127,7 +127,7 @@ async def on_voice_state_update(member, before, after):
             guild.default_role: PermissionOverwrite(read_messages=True, send_messages=True)
         }
         text_channel = await guild.create_text_channel(
-            name=f"💬 chat-{member.display_name}",
+            name=f"💬-CHAT",
             overwrites=overwrites_text,
             category=new_category
         )
