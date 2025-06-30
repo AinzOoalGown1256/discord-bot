@@ -1,0 +1,10 @@
+app = "discord-bot-vgbrha"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+
+[deploy]
+  strategy = "rolling"
