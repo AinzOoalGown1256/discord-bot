@@ -1,9 +1,10 @@
 import nextcord
 from nextcord.ext import commands
-from nextcord import Interaction, SlashOption, PermissionOverwrite, ChannelType
+from nextcord import Interaction, SlashOption, ChannelType, ButtonStyle, PermissionOverwrite, ChannelType, PartialEmoji
 import os
 from dotenv import load_dotenv
 import asyncio
+from nextcord.ui import View, Button
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -41,6 +42,40 @@ async def yp(interaction: Interaction):
         "/yp generador <canal> - Asigna el canal generador",
         ephemeral=True
     )
+
+@yp.subcommand(name="rango", description="Panel de selección de rango de Dota 2")
+async def rango(interaction: Interaction):
+    ranks = {
+        "MedallaHeraldo": PartialEmoji(name="MedallaHeraldo", id=1389344036980265101),
+        "MedallaGuardian": PartialEmoji(name="MedallaGuardian", id=1389344040150892674),
+        "MedallaCruzado": PartialEmoji(name="MedallaCruzado", id=1389344044089348096),
+        "MedallaArconte": PartialEmoji(name="MedallaArconte", id=1389344046261993632),
+        "MedallaLeyenda": PartialEmoji(name="MedallaLeyenda", id=1389344030793400451),
+        "MedallaAncestro": PartialEmoji(name="MedallaAncestro", id=1389344027815579698),
+        "MedallaDivino": PartialEmoji(name="MedallaDivino", id=1389344042076213258),
+        "MedallaInmortal": PartialEmoji(name="MedallaInmortal", id=1389344033784201356)
+    }
+    view = View(timeout=None)
+    items = list(ranks.items())
+    for i in range(len(items)):
+        nombre, emoji = items[i]
+        async def make_callback(role_name):
+            async def callback(interaction_btn: Interaction):
+                member = interaction_btn.user
+                guild = interaction_btn.guild
+                for r in ranks:
+                    old = nextcord.utils.get(guild.roles, name=r)
+                    if old in member.roles:
+                        await member.remove_roles(old)
+                role = nextcord.utils.get(guild.roles, name=role_name)
+                if role:
+                    await member.add_roles(role)
+                await interaction_btn.response.defer()
+            return callback
+        button = Button(label=nombre, emoji=emoji, style=ButtonStyle.primary, row=i // 2)
+        button.callback = await make_callback(nombre)
+        view.add_item(button)
+    await interaction.response.send_message("Selecciona tu rango:", view=view, ephemeral=False)
 
 @yp.subcommand(name="generador", description="Asignar o actualizar canal generador")
 async def yp_generador(
