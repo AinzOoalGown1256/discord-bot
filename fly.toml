@@ -5,6 +5,7 @@ app = "discord-bot-vgbrha"
 
 [env]
   PORT = "8080"
+  HEALTHCHECK_ENABLED = "true"
 
 [deploy]
   strategy = "rolling"
@@ -27,3 +28,11 @@ app = "discord-bot-vgbrha"
   [[services.tcp_checks]]
     interval = "30s"
     timeout = "2s"
+
+  [[services.http_checks]]
+    path = "/"
+    interval = "30s"
+    timeout = "5s"
+    method = "get"
+    protocol = "http"
+    restart_limit = 0
