@@ -1,13 +1,22 @@
-app = "discord-bot-vgbrha"
-
-[build]
-  dockerfile = "Dockerfile"
-
 [env]
-  PORT = "8080"
+PORT = "8080"
+HEALTHCHECK_ENABLED = "true"
 
-[deploy]
-  strategy = "rolling"
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
 
-[experimental]
-  auto_rollback = true
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls"]
+    port = 443
+
+  [[services.http_checks]]
+    path = "/"
+    interval = "30s"
+    timeout = "5s"
+    method = "get"
+    protocol = "http"
