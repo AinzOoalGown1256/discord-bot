@@ -5,6 +5,8 @@ import os
 from dotenv import load_dotenv
 import asyncio
 from nextcord.ui import View, Button
+import yt_dlp
+from nextcord import FFmpegPCMAudio
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -18,6 +20,7 @@ intents.voice_states = True
 intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
+music_queues = {}
 
 @bot.event
 async def on_ready():
@@ -103,6 +106,137 @@ async def yp_generador(
         mensaje = f"Canal generador asignado: <#{nuevo_id}>"
 
     await interaction.followup.send(mensaje, ephemeral=True)
+
+@yp.subcommand(name="musica", description="Reproduce música como un bot de música")
+async def musica(
+    interaction: Interaction,
+    nombre: str = SlashOption(
+        name="nombre",
+        description="Nombre de canción o URL de YouTube",
+        required=True
+    )
+):
+    if not interaction.user.voice or not interaction.user.voice.channel:
+        await interaction.response.send_message("Debes estar en un canal de voz.", ephemeral=True)
+        return
+
+    canal = interaction.user.voice.channel
+
+    if interaction.guild.voice_client:
+        vc = interaction.guild.voice_client
+        if vc.channel != canal:
+            await vc.move_to(canal)
+    else:
+        vc = await canal.connect()
+
+    await interaction.response.defer()
+
+    ydl_opts = {
+        'format': 'bestaudio',
+        'quiet': True,
+        'noplaylist': True,
+        'default_search': 'ytsearch',
+        'extract_flat': False,
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(nombre, download=False)
+        if 'entries' in info:
+            info = info['entries'][0]
+        stream_url = info['url']
+        title = info.get('title', 'Sin título')
+
+    ffmpeg_options = {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn'
+    }
+
+    vc.stop()
+    vc.play(FFmpegPCMAudio(stream_url, **ffmpeg_options))
+
+    await interaction.followup.send(f"🎵 Reproduciendo: **{title}**")
+
+async def play_next(ctx, guild_id):
+    if music_queues[guild_id]:
+        url, title = music_queues[guild_id].pop(0)
+        vc = ctx.guild.voice_client
+        ffmpeg_options = {
+            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+            'options': '-vn'
+        }
+        vc.play(FFmpegPCMAudio(url, **ffmpeg_options), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx, guild_id), bot.loop))
+        await ctx.channel.send(f"🎵 Reproduciendo: **{title}**")
+    else:
+        await ctx.guild.voice_client.disconnect()
+
+@yp.subcommand(name="add", description="Agregar canción a la cola")
+async def add(
+    interaction: Interaction,
+    nombre: str = SlashOption(
+        name="nombre",
+        description="Nombre o URL de canción",
+        required=True
+    )
+):
+    if not interaction.user.voice or not interaction.user.voice.channel:
+        await interaction.response.send_message("Debes estar en un canal de voz.", ephemeral=True)
+        return
+
+    canal = interaction.user.voice.channel
+    guild_id = interaction.guild.id
+
+    await interaction.response.defer()
+
+    ydl_opts = {
+        'format': 'bestaudio',
+        'quiet': True,
+        'noplaylist': True,
+        'default_search': 'ytsearch',
+        'extract_flat': False,
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(nombre, download=False)
+        if 'entries' in info:
+            info = info['entries'][0]
+        url = info['url']
+        title = info.get('title', 'Sin título')
+
+    if guild_id not in music_queues:
+        music_queues[guild_id] = []
+
+    music_queues[guild_id].append((url, title))
+
+    if not interaction.guild.voice_client:
+        vc = await canal.connect()
+        await play_next(interaction, guild_id)
+    elif not interaction.guild.voice_client.is_playing():
+        await play_next(interaction, guild_id)
+    else:
+        await interaction.followup.send(f"🎶 Agregado a la cola: **{title}**")
+
+@yp.subcommand(name="skip", description="Saltar canción actual")
+async def skip(interaction: Interaction):
+    vc = interaction.guild.voice_client
+    if vc and vc.is_playing():
+        vc.stop()
+        await interaction.response.send_message("⏭️ Saltando...")
+    else:
+        await interaction.response.send_message("No hay música reproduciéndose.", ephemeral=True)
+
+@yp.subcommand(name="cola", description="Mostrar canciones en la cola")
+async def cola(interaction: Interaction):
+    guild_id = interaction.guild.id
+
+    if guild_id not in music_queues or not music_queues[guild_id]:
+        await interaction.response.send_message("🎶 La cola está vacía.", ephemeral=True)
+        return
+
+    lista = ""
+    for i, (_, title) in enumerate(music_queues[guild_id], 1):
+        lista += f"**{i}.** {title}\n"
+
+    await interaction.response.send_message(f"📀 **Canciones en la cola:**\n{lista}", ephemeral=False)
 
 @bot.event
 async def on_voice_state_update(member, before, after):
