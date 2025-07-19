@@ -8,3 +8,22 @@ app = "discord-bot-vgbrha"
 
 [deploy]
   strategy = "rolling"
+
+[experimental]
+  auto_rollback = true
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+
+  [[services.ports]]
+    handlers = ["tls"]
+    port = 443
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.tcp_checks]]
+    interval = "30s"
+    timeout = "2s"
