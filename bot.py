@@ -107,53 +107,43 @@ async def yp_generador(
 @bot.event
 async def on_voice_state_update(member, before, after):
     global generator_channel_id
-
     if after.channel and after.channel.id == generator_channel_id:
         guild = member.guild
-        stage_channel = await guild.create_stage_channel(
-            name=f"{member.display_name}",
-            topic="Partida Rankeada de Dota 2",
-            user_limit=99
+        new_category = await guild.create_category(name=f"# {member.display_name}")
+
+        overwrites_voice = {
+            guild.default_role: PermissionOverwrite(connect=True),
+            member: PermissionOverwrite(manage_channels=True)
+        }
+        voice_channel = await guild.create_voice_channel(
+            name=f"🎤-AUDIO",
+            overwrites=overwrites_voice,
+            category=new_category,
+            user_limit=5
+        )
+        await member.move_to(voice_channel)
+
+        overwrites_text = {
+            guild.default_role: PermissionOverwrite(read_messages=True, send_messages=True)
+        }
+        text_channel = await guild.create_text_channel(
+            name=f"💬-CHAT",
+            overwrites=overwrites_text,
+            category=new_category
         )
 
-        presentadores = set()
-        presentadores.add(member.id)
-
-        try:
-            await stage_channel.set_permissions(member, speak=True, connect=True, view_channel=True)
-            await member.move_to(stage_channel)
-            await stage_channel.edit(user_limit=99)
-            await asyncio.sleep(1)
-            await stage_channel.request_to_speak()
-            await stage_channel.set_permissions(guild.default_role, connect=True, speak=False)
-            await stage_channel.start(topic=f"{member.display_name}")
-        except Exception as e:
-            print(f"Error moviendo a {member.display_name}: {e}")
-
-        async def controlar_participantes():
+        async def eliminar_canales_si_vacio():
             while True:
-                await asyncio.sleep(1)
-                miembros = stage_channel.members
-                if len(miembros) == 0:
+                await asyncio.sleep(0.1)
+                if len(voice_channel.members) == 0:
                     try:
-                        await stage_channel.delete()
+                        await voice_channel.delete()
+                        await text_channel.delete()
+                        await new_category.delete()
                     except:
                         pass
                     break
-                for user in miembros:
-                    if user.id not in presentadores and len(presentadores) < 6:
-                        try:
-                            await stage_channel.set_permissions(user, speak=True, connect=True, view_channel=True)
-                            await stage_channel.request_to_speak()
-                            presentadores.add(user.id)
-                        except:
-                            pass
-                    elif user.id not in presentadores:
-                        try:
-                            await stage_channel.set_permissions(user, speak=False, connect=True, view_channel=True)
-                        except:
-                            pass
 
-        bot.loop.create_task(controlar_participantes())
+        bot.loop.create_task(eliminar_canales_si_vacio())
 
 bot.run(TOKEN)
