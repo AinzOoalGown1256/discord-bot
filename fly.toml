@@ -1,13 +1,37 @@
 app = "discord-bot-vgbrha"
 
 [build]
-  dockerfile = "Dockerfile"
-
-[env]
-  PORT = "8080"
+dockerfile = "Dockerfile"
 
 [deploy]
-  strategy = "rolling"
+strategy = "rolling"
+
+[env]
+PORT = "8080"
 
 [experimental]
-  auto_rollback = true
+auto_rollback = true
+
+  [experimental.attached]
+  secrets = { }
+
+[[services]]
+internal_port = 8_080
+protocol = "tcp"
+
+  [services.concurrency]
+  hard_limit = 25
+  soft_limit = 20
+  type = "connections"
+
+  [[services.ports]]
+  handlers = [ "http" ]
+  port = 80
+
+  [[services.ports]]
+  handlers = [ "tls", "http" ]
+  port = 443
+
+[mounts]
+  source = "datos_bot"
+  destination = "/data"
