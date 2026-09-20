@@ -3,6 +3,7 @@ from nextcord.ext import commands
 from nextcord import Interaction, SlashOption, ChannelType, PermissionOverwrite, ButtonStyle
 from nextcord.ui import View, Button
 import os
+import json
 from dotenv import load_dotenv
 import asyncio
 import aiohttp
@@ -18,8 +19,31 @@ intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Diccionario: {guild_id: generator_channel_id}
-generadores = {}
+# Archivo donde se guardan los generadores por servidor (en el volumen /data)
+ARCHIVO_GENERADORES = "/data/generadores.json"
+
+def cargar_generadores():
+    """Carga los generadores desde el archivo JSON."""
+    if os.path.exists(ARCHIVO_GENERADORES):
+        try:
+            with open(ARCHIVO_GENERADORES, "r") as f:
+                data = json.load(f)
+                return {int(k): int(v) for k, v in data.items()}
+        except Exception as e:
+            print(f"Error al cargar generadores: {e}")
+    return {}
+
+def guardar_generadores(generadores):
+    """Guarda los generadores en el archivo JSON."""
+    try:
+        os.makedirs(os.path.dirname(ARCHIVO_GENERADORES), exist_ok=True)
+        with open(ARCHIVO_GENERADORES, "w") as f:
+            json.dump({str(k): str(v) for k, v in generadores.items()}, f, indent=2)
+    except Exception as e:
+        print(f"Error al guardar generadores: {e}")
+
+# Cargar los generadores al iniciar
+generadores = cargar_generadores()
 
 # ------------------- COMANDO /generador -------------------
 @bot.slash_command(name="generador", description="Asignar canal generador de salas temporales")
@@ -41,6 +65,9 @@ async def generador(
     nuevo_id = generator.id
     old_id = generadores.get(guild_id)
     generadores[guild_id] = nuevo_id
+    
+    # Guardar en el archivo (persiste entre reinicios)
+    guardar_generadores(generadores)
     
     mensaje = f"Canal generador asignado: <#{nuevo_id}>"
     if old_id and old_id != nuevo_id:
@@ -119,7 +146,6 @@ class UnirseAlCreadorView(View):
             )
             return
         
-        # Verificar si el creador está en un canal de voz
         if not creador.voice or not creador.voice.channel:
             await interaction.response.send_message(
                 "El creador no está en un canal de voz en este momento.",
@@ -130,7 +156,6 @@ class UnirseAlCreadorView(View):
         canal_voz_creador = creador.voice.channel
         member = interaction.user
         
-        # Si ya está en el mismo canal
         if member.voice and member.voice.channel and member.voice.channel.id == canal_voz_creador.id:
             await interaction.response.send_message(
                 "Ya estás en la partida del creador.",
@@ -138,7 +163,6 @@ class UnirseAlCreadorView(View):
             )
             return
         
-        # Si el que presiona ya está en un canal de voz, moverlo automáticamente
         if member.voice and member.voice.channel:
             try:
                 await member.move_to(canal_voz_creador)
@@ -150,7 +174,6 @@ class UnirseAlCreadorView(View):
             except Exception as e:
                 print(f"Error al mover: {e}")
         
-        # Si no está en ningún canal de voz, enviar enlace directo
         enlace = f"https://discord.com/channels/{guild.id}/{canal_voz_creador.id}"
         await interaction.response.send_message(
             f"🎮 **Únete a la partida aquí:**\n{enlace}",
@@ -211,6 +234,7 @@ async def buscarpartida(
 @bot.event
 async def on_ready():
     print(f"Bot conectado como {bot.user}")
+    print(f"Generadores cargados: {generadores}")
     try:
         await bot.sync_all_application_commands()
         print("Comandos slash sincronizados")
